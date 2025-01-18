@@ -29,25 +29,43 @@ export function useSignupForm() {
       setError(null);
 
       // Sign up with Supabase
-      await signUp(formData.email, formData.password);
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            phone: formData.phone,
+            job_title: formData.jobTitle,
+            company_type: formData.companyType,
+            company_name: formData.companyName,
+            company_website: formData.companyWebsite,
+          }
+        }
+      });
 
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          email: formData.email,
-          phone: formData.phone,
-          job_title: formData.jobTitle,
-          company_type: formData.companyType,
-          company_name: formData.companyName,
-          company_website: formData.companyWebsite,
-        });
+      if (authError) throw authError;
 
-      if (profileError) throw profileError;
+      // Only proceed if signup was successful
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id, // Important: Link profile to user
+            email: formData.email,
+            phone: formData.phone,
+            job_title: formData.jobTitle,
+            company_type: formData.companyType,
+            company_name: formData.companyName,
+            company_website: formData.companyWebsite,
+          });
+
+        if (profileError) throw profileError;
+      }
 
       setIsComplete(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Signup error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during signup');
     } finally {
       setLoading(false);
     }
